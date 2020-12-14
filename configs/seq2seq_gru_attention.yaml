@@ -1,0 +1,28 @@
+model_name: seq2seq_gru
+
+with_pad: False
+inversion_dataset: False
+
+logs_dir: logs
+ngpu: 0
+cuda: True
+
+base_model:
+  enc_emb_dim: 256
+  enc_hid_dim: 512
+  enc_dropout: 0.5
+  dec_emb_dim: 256
+  dec_hid_dim: 512
+  dec_dropout: 0.5
+
+checkpoint_callback:
+  mode: max
+  monitor: val_loss
+  save_top_k: 3
+  verbose: True
+
+train_params:
+  epoch_size: 10
+  batch_size: 128
+  n_epochs: 10
+  clip: 1
