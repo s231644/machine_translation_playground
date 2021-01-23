@@ -102,14 +102,14 @@ class Runner(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        # avg_accuracy = self.val_accuracy.compute()
-        # avg_exact_match = self.val_exact_match.compute()
-        # avg_bleu = self.val_bleu.compute()
+        avg_accuracy = self.val_accuracy.compute()
+        avg_exact_match = self.val_exact_match.compute()
+        avg_bleu = self.val_bleu.compute()
         tensorboard_logs = {
             'val_loss': avg_loss,
-            # 'val_accuracy': avg_accuracy,
-            # 'val_exact_match': avg_exact_match,
-            # 'val_bleu': avg_bleu
+            'val_accuracy': avg_accuracy,
+            'val_exact_match': avg_exact_match,
+            'val_bleu': avg_bleu
         }
 
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
