@@ -23,25 +23,31 @@ class GRUSeq2Seq(nn.Module):
     ):
         super().__init__()
 
+        self.device = device
+
         self.encoder = GRUEncoder(
             input_dim,
             enc_emb_dim,
             enc_hid_dim,
             enc_pad_ix,
-            dropout=enc_dropout
+            dropout=enc_dropout,
+            device=device
         )
+
         self.decoder = GRUDecoder(
             output_dim,
             dec_emb_dim,
             dec_hid_dim,
-            dropout=dec_dropout
+            dropout=dec_dropout,
+            device=device
         )
-        self.device = device
 
         assert self.encoder.hid_dim == self.decoder.hid_dim, \
             "Hidden dimensions of encoder and decoder must be equal!"
 
     def forward(self, src, trg, teacher_forcing_ratio=0.5):
+        src = src.to(self.device)
+        trg = trg.to(self.device)
         trg_len, batch_size = trg.shape
         trg_vocab_size = self.decoder.output_dim
 
@@ -76,3 +82,36 @@ class GRUSeq2Seq(nn.Module):
             input_ = trg[t] if teacher_force else top1
 
         return outputs
+
+    def predict(self, src, init_idx: int, max_trg_len: int):
+        src = src.to(self.device)
+        src_len, batch_size = src.shape
+        trg_vocab_size = self.decoder.output_dim
+
+        # tensor to store decoder outputs
+        outputs = torch.zeros(max_trg_len, batch_size, trg_vocab_size).to(self.device)
+
+        # last hidden state of the encoder is the context
+        enc_outputs, context = self.encoder(src)
+
+        # context also used as the initial hidden state of the decoder
+        hidden = context
+
+        # first input to the decoder is the <sos> tokens
+        input_ = torch.zeros(batch_size, dtype=torch.long).to(self.device) + init_idx
+        predictions = [input_]
+
+        for t in range(1, max_trg_len):
+            # insert input token embedding, previous hidden state and the context state
+            # receive output tensor (predictions) and new hidden state
+            output, hidden = self.decoder(input_, hidden, context)
+
+            # place predictions in a tensor holding predictions for each token
+            outputs[t] = output
+
+            top1 = output.argmax(1)
+
+            input_ = top1
+            predictions.append(input_)
+
+        return torch.stack(predictions).to(self.device)

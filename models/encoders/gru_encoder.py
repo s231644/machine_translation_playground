@@ -11,6 +11,7 @@ class GRUEncoder(nn.Module):
             enc_pad_ix,
             n_layers=1,
             dropout=0.5,
+            device="cpu"
     ):
         super().__init__()
 
@@ -21,9 +22,11 @@ class GRUEncoder(nn.Module):
 
         self.enc_pad_ix = enc_pad_ix
 
-        self.embedding = nn.Embedding(input_dim, emb_dim)
-        self.rnn = nn.GRU(emb_dim, hid_dim, num_layers=n_layers)
-        self.dropout = nn.Dropout(dropout)
+        self.device = device
+
+        self.embedding = nn.Embedding(input_dim, emb_dim).to(self.device)
+        self.rnn = nn.GRU(emb_dim, hid_dim, num_layers=n_layers).to(self.device)
+        self.dropout = nn.Dropout(dropout).to(self.device)
 
     def forward(self, src):
         src_len, batch_size = src.shape

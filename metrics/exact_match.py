@@ -16,10 +16,10 @@ class ExactMatch(Metric):
         assert preds.shape == target.shape
 
         loss_mask = torch.where(
-            torch.BoolTensor(target == self.pad_idx), self.zero, self.one
+            torch.BoolTensor(target.cpu() == self.pad_idx), self.zero, self.one
         )
         equal_mask = torch.where(
-            torch.BoolTensor(target != preds), self.one, self.zero
+            torch.BoolTensor(target.cpu() != preds.cpu()), self.one, self.zero
         )
 
         corrects = torch.sum(loss_mask * equal_mask, dim=0)

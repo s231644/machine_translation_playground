@@ -40,8 +40,8 @@ class BLEU(Metric):
 
         # trg_len, batch_size = target.shape
 
-        preds = preds.T
-        target = target.T
+        preds = preds.T.cpu()
+        target = target.T.cpu()
 
         for p, t in zip(preds, target):
             p_no_pad = p[p != self.pad_idx]

@@ -13,7 +13,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from runner.runner import Runner
 from models.seq2seq.gru_seq2seq import GRUSeq2Seq as Model
-from readers.words_to_digits_reader import Words2DigitsReader as Reader, Words2DigitsIterator as Iterator
+from readers.words_to_digits_reader import Words2DigitsReader as Reader
 
 # set seed
 SEED = 1234
@@ -33,7 +33,6 @@ reader = Reader("data/numerals_s2s/words2digits")
 INPUT_DIM = len(reader.SRC.vocab)
 OUTPUT_DIM = len(reader.TRG.vocab)
 SRC_PAD_IDX = reader.SRC.vocab.stoi[reader.SRC.pad_token]
-TRG_PAD_IDX = reader.TRG.vocab.stoi[reader.TRG.pad_token]
 
 model = Model(
     input_dim=INPUT_DIM,
@@ -52,11 +51,9 @@ model = model.to(device)
 
 runner = Runner(
     model=model,
-    train_dataset=reader.train_ds,
-    val_dataset=reader.valid_ds,
-    train_iterator=Iterator(reader.train_ds, batch_size=67),
-    val_iterator=Iterator(reader.valid_ds, batch_size=82),
-    trg_pad_idx=TRG_PAD_IDX
+    reader=reader,
+    train_batch_size=64,
+    val_batch_size=128
 )
 
 logger = TensorBoardLogger(
@@ -66,7 +63,10 @@ logger = TensorBoardLogger(
 
 trainer = Trainer(
     logger=logger,
-    max_epochs=3,
+    max_epochs=1,
 )
 
+print(runner.predict("пять сто шесть -надцать"))
+
 trainer.fit(runner)
+print(runner.predict("пять сто шесть -надцать"))

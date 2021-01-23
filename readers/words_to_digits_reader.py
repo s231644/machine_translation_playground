@@ -1,3 +1,4 @@
+import torch.tensor
 from torchtext import data, datasets
 
 
@@ -42,50 +43,38 @@ class Words2DigitsReader:
         self.SRC.build_vocab(self.train_ds.src, min_freq=1)
         self.TRG.build_vocab(self.train_ds.trg, min_freq=1)
 
+    def encode_src(self, x):
+        if isinstance(x, str):
+            x = [x]
+        return self.SRC.process(list(map(self.SRC.preprocess, x)))
 
-class Words2DigitsIterator(data.Iterator):
-    def __init__(self, *args, **kwargs):
-        super(Words2DigitsIterator, self).__init__(*args, **kwargs)
-        self.batches = []
+    def decode_src(self, x: torch.LongTensor):
+        assert len(x.shape) == 2
+        x = x.T
+        batch_size, trg_len = x.shape
+        res = []
+        for i in range(batch_size):
+            res.append(
+                list(map(lambda t: self.SRC.vocab.itos[t], x[i]))
+            )
+        return res
 
-    def create_batches(self):
-        if self.train:
-            def pool(d, random_shuffler):
-                for p in data.batch(d, self.batch_size * 100):
-                    p_batch = data.batch(
-                        sorted(p, key=self.sort_key),
-                        self.batch_size, self.batch_size_fn
-                    )
-                    for b in random_shuffler(list(p_batch)):
-                        yield b
+    def encode_trg(self, x):
+        if isinstance(x, str):
+            x = [x]
+        return self.TRG.process(list(map(self.TRG.preprocess, x)))
 
-            self.batches = pool(self.data(), self.random_shuffler)
-
-        else:
-            self.batches = []
-            for b in data.batch(self.data(), self.batch_size,
-                                self.batch_size_fn):
-                self.batches.append(sorted(b, key=self.sort_key))
-
-
-class Words2DigitBatch(data.Batch):
-    "Object for holding a batch of data with mask during training."
-
-    def __init__(self, src, trg=None, pad=0):
-        super(Words2DigitBatch, self).__init__()
-        self.src = src
-        self.src_mask = (src != pad).unsqueeze(-2)
-        if trg is not None:
-            self.trg = trg[:, :-1]
-            self.trg_y = trg[:, 1:]
-            self.trg_mask = \
-                self.make_std_mask(self.trg, pad)
-            self.ntokens = (self.trg_y != pad).data.sum()
-
-    @staticmethod
-    def make_std_mask(tgt, pad):
-        "Create a mask to hide padding and future words."
-        tgt_mask = (tgt != pad).unsqueeze(-2)
-        tgt_mask = tgt_mask & Variable(
-            subsequent_mask(tgt.size(-1)).type_as(tgt_mask.data))
-        return tgt_mask
+    def decode_trg(self, x: torch.LongTensor):
+        assert len(x.shape) == 2
+        x = x.T
+        batch_size, trg_len = x.shape
+        res = []
+        for i in range(batch_size):
+            res_i = []
+            for j in range(trg_len):
+                c = self.TRG.vocab.itos[x[i][j]]
+                res_i.append(c)
+                if c == self.TRG.eos_token:
+                    break
+            res.append(res_i)
+        return res

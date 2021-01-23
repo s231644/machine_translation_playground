@@ -3,6 +3,7 @@ import torch
 import torch.utils.data
 import torch.nn as nn
 import torch.optim as optim
+from torchtext.data import Iterator
 
 # PyTorch Lightning
 import pytorch_lightning as pl
@@ -16,31 +17,49 @@ class Runner(pl.LightningModule):
     def __init__(
             self,
             model,
-            train_dataset,
-            val_dataset,
-            train_iterator,
-            val_iterator,
-            trg_pad_idx,
+            reader,
+            train_batch_size: int,
+            val_batch_size: int,
     ):
         super(Runner, self).__init__()
         self.model = model
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
+        self.reader = reader
+        self.train_dataset = reader.train_ds
+        self.val_dataset = reader.valid_ds
 
-        self.train_iterator = train_iterator
-        self.val_iterator = val_iterator
+        self.train_iterator = Iterator(self.train_dataset, train_batch_size)
+        self.val_iterator = Iterator(self.val_dataset, val_batch_size)
 
-        self.trg_pad_idx = trg_pad_idx
+        self.dec_pad_token = reader.TRG.pad_token
+        self.dec_init_token = reader.TRG.init_token
+        self.dec_eos_token = reader.TRG.eos_token
 
-        self.criterion = nn.CrossEntropyLoss(ignore_index=trg_pad_idx)
+        self.dec_pad_idx = reader.TRG.vocab.stoi[self.dec_pad_token]
+        self.dec_init_idx = reader.TRG.vocab.stoi[self.dec_init_token]
+        self.dec_eos_idx = reader.TRG.vocab.stoi[self.dec_eos_token]
+
+        self.dec_max_len = reader.TRG.fix_length
+
+        self.criterion = nn.CrossEntropyLoss(ignore_index=self.dec_pad_idx)
 
         self.val_accuracy = Accuracy()
-        self.val_exact_match = ExactMatch(ignore_index=trg_pad_idx)
-        self.val_bleu = BLEU(ignore_index=trg_pad_idx)
+        self.val_exact_match = ExactMatch(ignore_index=self.dec_pad_idx)
+        self.val_bleu = BLEU(ignore_index=self.dec_pad_idx)
 
     def forward(self, x):
         outputs = self.model(x)
         return outputs
+
+    def predict(self, x):
+        src = self.reader.encode_src(x)
+        trg_preds = self.model.predict(
+            src,
+            init_idx=self.dec_init_idx,
+            max_trg_len=self.dec_max_len
+        )
+        trg_preds = trg_preds[1:]
+        preds = self.reader.decode_trg(trg_preds)
+        return preds
 
     def training_step(self, batch, batch_idx):
         src = batch.src
@@ -77,20 +96,20 @@ class Runner(pl.LightningModule):
 
         loss = self.criterion(output, trg)
 
-        self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
         return {'val_loss': loss}
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_accuracy = self.val_accuracy.compute()
-        avg_exact_match = self.val_exact_match.compute()
-        avg_bleu = self.val_bleu.compute()
+        # avg_accuracy = self.val_accuracy.compute()
+        # avg_exact_match = self.val_exact_match.compute()
+        # avg_bleu = self.val_bleu.compute()
         tensorboard_logs = {
             'val_loss': avg_loss,
-            'val_accuracy': avg_accuracy,
-            'val_exact_match': avg_exact_match,
-            'val_bleu': avg_bleu
+            # 'val_accuracy': avg_accuracy,
+            # 'val_exact_match': avg_exact_match,
+            # 'val_bleu': avg_bleu
         }
 
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
