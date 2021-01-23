@@ -10,6 +10,7 @@ class Words2DigitsReader:
             init_token='<s>',
             eos_token='</s>',
             tokenize=lambda x: x.split()[::-1],
+            unk_token=None
         )
 
         self.TRG = data.Field(
@@ -34,47 +35,38 @@ class Words2DigitsReader:
                 fields=(self.SRC, self.TRG)
             )
 
-        # self.valid_ds = datasets.TranslationDataset(
-        #         path=f'{base_path}.test',
-        #         exts=(ext_src, ext_trg),
-        #         fields=(self.SRC, self.TRG)
-        #     )
-
         self.SRC.build_vocab(self.train_ds.src, min_freq=1)
         self.TRG.build_vocab(self.train_ds.trg, min_freq=1)
 
-    def encode_src(self, x):
+    @staticmethod
+    def _encode(field, x):
         if isinstance(x, str):
             x = [x]
-        return self.SRC.process(list(map(self.SRC.preprocess, x)))
+        return field.process(list(map(field.preprocess, x)))
 
-    def decode_src(self, x: torch.LongTensor):
+    @staticmethod
+    def _decode(field, x: torch.LongTensor):
         assert len(x.shape) == 2
-        x = x.T
-        batch_size, trg_len = x.shape
-        res = []
-        for i in range(batch_size):
-            res.append(
-                list(map(lambda t: self.SRC.vocab.itos[t], x[i]))
-            )
-        return res
-
-    def encode_trg(self, x):
-        if isinstance(x, str):
-            x = [x]
-        return self.TRG.process(list(map(self.TRG.preprocess, x)))
-
-    def decode_trg(self, x: torch.LongTensor):
-        assert len(x.shape) == 2
-        x = x.T
-        batch_size, trg_len = x.shape
+        max_len, batch_size = x.shape
         res = []
         for i in range(batch_size):
             res_i = []
-            for j in range(trg_len):
-                c = self.TRG.vocab.itos[x[i][j]]
+            for j in range(max_len):
+                c = field.vocab.itos[x[j][i]]
                 res_i.append(c)
-                if c == self.TRG.eos_token:
+                if c == field.eos_token:
                     break
             res.append(res_i)
         return res
+
+    def encode_src(self, x):
+        return self._encode(self.SRC, x)
+
+    def decode_src(self, x: torch.LongTensor):
+        return self._decode(self.SRC, x)
+
+    def encode_trg(self, x):
+        return self._encode(self.TRG, x)
+
+    def decode_trg(self, x: torch.LongTensor):
+        return self._decode(self.TRG, x)
