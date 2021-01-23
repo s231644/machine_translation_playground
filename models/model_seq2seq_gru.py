@@ -3,16 +3,22 @@ import torch.nn as nn
 import random
 
 
-class Encoder(nn.Module):
-    def __init__(self, input_dim, emb_dim, hid_dim, dropout):
+class GRUEncoder(nn.Module):
+    def __init__(
+            self,
+            input_dim,
+            emb_dim,
+            hid_dim,
+            dropout=0.5
+    ):
         super().__init__()
 
+        self.input_dim = input_dim
+        self.emb_dim = emb_dim
         self.hid_dim = hid_dim
 
-        self.embedding = nn.Embedding(input_dim, emb_dim)  # no dropout as only one layer!
-
+        self.embedding = nn.Embedding(input_dim, emb_dim)
         self.rnn = nn.GRU(emb_dim, hid_dim)
-
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src):
@@ -33,19 +39,17 @@ class Encoder(nn.Module):
         return hidden
 
 
-class Decoder(nn.Module):
+class GRUDecoder(nn.Module):
     def __init__(self, output_dim, emb_dim, hid_dim, dropout):
         super().__init__()
 
+        self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.output_dim = output_dim
 
         self.embedding = nn.Embedding(output_dim, emb_dim)
-
         self.rnn = nn.GRU(emb_dim + hid_dim, hid_dim)
-
         self.fc_out = nn.Linear(emb_dim + hid_dim * 2, output_dim)
-
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input, hidden, context):
@@ -78,8 +82,14 @@ class Decoder(nn.Module):
         # output = [1, batch size, hid dim]
         # hidden = [1, batch size, hid dim]
 
-        output = torch.cat((embedded.squeeze(0), hidden.squeeze(0), context.squeeze(0)),
-                           dim=1)
+        output = torch.cat(
+            (
+                embedded.squeeze(0),
+                hidden.squeeze(0),
+                context.squeeze(0)
+            ),
+            dim=1
+        )
 
         # output = [batch size, emb dim + hid dim * 2]
 
@@ -91,20 +101,22 @@ class Decoder(nn.Module):
 
 
 class Seq2SeqGRU(nn.Module):
-    def __init__(self,
-                 input_dim,
-                 enc_emb_dim,
-                 enc_hid_dim,
-                 enc_dropout,
-                 output_dim,
-                 dec_emb_dim,
-                 dec_hid_dim,
-                 dec_dropout,
-                 device):
+    def __init__(
+            self,
+            input_dim,
+            enc_emb_dim,
+            enc_hid_dim,
+            enc_dropout,
+            output_dim,
+            dec_emb_dim,
+            dec_hid_dim,
+            dec_dropout,
+            device
+    ):
         super().__init__()
 
-        self.encoder = Encoder(input_dim, enc_emb_dim, enc_hid_dim, enc_dropout)
-        self.decoder = Decoder(output_dim, dec_emb_dim, dec_hid_dim, dec_dropout)
+        self.encoder = GRUEncoder(input_dim, enc_emb_dim, enc_hid_dim, enc_dropout)
+        self.decoder = GRUDecoder(output_dim, dec_emb_dim, dec_hid_dim, dec_dropout)
         self.device = device
 
         assert self.encoder.hid_dim == self.decoder.hid_dim, \

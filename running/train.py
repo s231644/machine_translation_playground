@@ -1,8 +1,6 @@
 # Basic
 import numpy as np
 import random
-import argparse
-import yaml
 from pathlib import Path
 
 # PyTorch
@@ -28,17 +26,6 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-# parser
-parser = argparse.ArgumentParser()
-parser.add_argument('--config', type=str, default='configs/seq2seq_lstm.yaml', help='')
-params = parser.parse_args()
-
-try:
-    params = yaml.full_load(open(params.config))
-except FileNotFoundError:
-    print("No such file or directory: {}".format(params.config))
-    exit(1)
-
 # set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -56,14 +43,6 @@ INPUT_DIM = len(SRC.vocab)
 OUTPUT_DIM = len(TRG.vocab)
 SRC_PAD_IDX = SRC.vocab.stoi[SRC.pad_token]
 
-model_params = params['base_model']
-model_params['model_name'] = params['model_name']
-model_params['input_dim'] = INPUT_DIM
-model_params['output_dim'] = OUTPUT_DIM
-model_params['device'] = device
-if params['with_pad']:
-    model_params['src_pad_idx'] = SRC_PAD_IDX
-
 model = get_model(**model_params)
 model = model.to(device)
 model = model_init_weights(params['model_name'], model)
@@ -79,10 +58,8 @@ runner = Runner(
     train_iterator=train_iterator,
     val_iterator=val_iterator,
     trg_pad_idx=TRG_PAD_IDX,
-    clip=params['train_params']['clip'],
-    epoch_size=params['train_params']['epoch_size'],
-    batch_size=params['train_params']['batch_size'],
-    with_pad=params['with_pad'],
+    epoch_size=0,
+    batch_size=64,
 )
 
 checkpoint_callback = ModelCheckpoint(
