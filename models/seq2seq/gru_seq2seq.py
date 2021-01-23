@@ -32,7 +32,7 @@ class GRUSeq2Seq(nn.Module):
             enc_pad_ix,
             dropout=enc_dropout,
             device=device
-        )
+        ).to(self.device)
 
         self.decoder = GRUDecoder(
             output_dim,
@@ -40,7 +40,7 @@ class GRUSeq2Seq(nn.Module):
             dec_hid_dim,
             dropout=dec_dropout,
             device=device
-        )
+        ).to(self.device)
 
         assert self.encoder.hid_dim == self.decoder.hid_dim, \
             "Hidden dimensions of encoder and decoder must be equal!"

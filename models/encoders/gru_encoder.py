@@ -29,6 +29,7 @@ class GRUEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout).to(self.device)
 
     def forward(self, src):
+        src = src.to(self.device)
         src_len, batch_size = src.shape
 
         embedded = self.dropout(self.embedding(src))

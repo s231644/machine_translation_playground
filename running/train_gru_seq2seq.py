@@ -67,6 +67,6 @@ trainer = Trainer(
 )
 
 print(runner.predict("пять сто шесть -надцать"))
-
 trainer.fit(runner)
+runner.model.to(device)
 print(runner.predict("пять сто шесть -надцать"))

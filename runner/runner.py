@@ -51,7 +51,7 @@ class Runner(pl.LightningModule):
         return outputs
 
     def predict(self, x):
-        src = self.reader.encode_src(x)
+        src = self.reader.encode_src(x).to(self.device)
         trg_preds = self.model.predict(
             src,
             init_idx=self.dec_init_idx,
@@ -83,18 +83,20 @@ class Runner(pl.LightningModule):
         trg = batch.trg
 
         output = self.model(src, trg, teacher_forcing_ratio=0)
+        output_dim = output.shape[-1]
 
-        trg_preds = output.argmax(2)
+        trg = trg[1:]
+
+        # in case of beam search the first produced output can be useful,
+        # therefore we don't truncate output here
+        trg_preds = output.argmax(2)[1:]
         self.val_accuracy.update(trg_preds, trg)
         self.val_exact_match.update(trg_preds, trg)
         self.val_bleu.update(trg_preds, trg)
 
-        output_dim = output.shape[-1]
+        output = output[1:]
 
-        output = output[1:].view(-1, output_dim)
-        trg = trg[1:].view(-1)
-
-        loss = self.criterion(output, trg)
+        loss = self.criterion(output.view(-1, output_dim), trg.view(-1))
 
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
 
