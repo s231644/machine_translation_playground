@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 
+from models.layers.convrnn_cells import ConvLSTM
 
-class GRUEncoder(nn.Module):
+
+class ConvRNNSymmetryEncoder(nn.Module):
     def __init__(
             self,
             input_dim,
@@ -25,7 +27,7 @@ class GRUEncoder(nn.Module):
         self.device = device
 
         self.embedding = nn.Embedding(input_dim, emb_dim)
-        self.rnn = nn.GRU(emb_dim, hid_dim, num_layers=n_layers)
+        self.rnn = ConvLSTM(emb_dim, hid_dim)  # TODO: n_layers, stack_size
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src):
