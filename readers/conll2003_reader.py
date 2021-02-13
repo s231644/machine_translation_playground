@@ -2,42 +2,49 @@ import torch.tensor
 from torchtext import data, datasets
 
 
-class WordsTrees2DigitsReader:
-    # TODO
-    def __init__(self, base_path: str, ext_src: str = '.lemmas', ext_trg: str = '.digits'):
+class CoNLL2003Reader:
+    def __init__(self, base_path: str):
         self.SRC = data.Field(
             pad_token="<pad>",
-            fix_length=29,
             init_token='<s>',
             eos_token='</s>',
-            tokenize=lambda x: x.split()[::-1],
-            unk_token=None
+            unk_token='<unk>'
         )
 
         self.TRG = data.Field(
             pad_token="<pad>",
-            fix_length=18,
             init_token='<s>',
             eos_token='</s>',
-            tokenize=lambda x: x.split(),
             is_target=True,
-            unk_token=None
+            unk_token='<unk>'
         )
 
-        self.train_ds = datasets.TranslationDataset(
-                path=f'{base_path}.train',
-                exts=(ext_src, ext_trg),
-                fields=(self.SRC, self.TRG)
-            )
+        self.fields = [('src', self.SRC), ('trg', self.TRG)]
 
-        self.valid_ds = datasets.TranslationDataset(
-                path=f'{base_path}.valid',
-                exts=(ext_src, ext_trg),
-                fields=(self.SRC, self.TRG)
-            )
+        self.train_ds = self.read_data(f'{base_path}.train.txt')
+        self.valid_ds = self.read_data(f'{base_path}.dev.txt')
+        self.test_ds = self.read_data(f'{base_path}.test.txt')
 
-        self.SRC.build_vocab(self.train_ds.src, min_freq=1)
+        self.SRC.build_vocab(self.train_ds.src, min_freq=10)
         self.TRG.build_vocab(self.train_ds.trg, min_freq=1)
+
+    def read_data(self, path: str):
+        with open(path, encoding='utf-8') as f:
+            examples = []
+            words = []
+            labels = []
+            for line in f:
+                line = line.strip()
+                if not line:
+                    examples.append(data.Example.fromlist([words, labels], self.fields))
+                    words = []
+                    labels = []
+                else:
+                    # official NN I-NP O
+                    columns = line.split()
+                    words.append(columns[0])
+                    labels.append(columns[1])
+            return data.Dataset(examples, self.fields)
 
     @staticmethod
     def _encode(field, x):
@@ -55,7 +62,7 @@ class WordsTrees2DigitsReader:
             for j in range(max_len):
                 c = field.vocab.itos[x[j][i]]
                 res_i.append(c)
-                if c == field.eos_token:
+                if c == field.pad_token:
                     break
             res.append(res_i)
         return res

@@ -9,9 +9,6 @@ from torchtext.data import Iterator
 import pytorch_lightning as pl
 from pytorch_lightning.metrics import Accuracy
 
-from metrics.exact_match import ExactMatch
-from metrics.bleu import BLEU
-
 
 class Runner(pl.LightningModule):
     def __init__(
@@ -31,20 +28,12 @@ class Runner(pl.LightningModule):
         self.val_iterator = Iterator(self.val_dataset, val_batch_size)
 
         self.dec_pad_token = reader.TRG.pad_token
-        self.dec_init_token = reader.TRG.init_token
-        self.dec_eos_token = reader.TRG.eos_token
 
         self.dec_pad_idx = reader.TRG.vocab.stoi[self.dec_pad_token]
-        self.dec_init_idx = reader.TRG.vocab.stoi[self.dec_init_token]
-        self.dec_eos_idx = reader.TRG.vocab.stoi[self.dec_eos_token]
-
-        self.dec_max_len = reader.TRG.fix_length
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.dec_pad_idx)
 
         self.val_accuracy = Accuracy()
-        self.val_exact_match = ExactMatch(ignore_index=self.dec_pad_idx)
-        self.val_bleu = BLEU(ignore_index=self.dec_pad_idx)
 
     def forward(self, x):
         outputs = self.model(x)
@@ -52,11 +41,7 @@ class Runner(pl.LightningModule):
 
     def predict(self, x):
         src = self.reader.encode_src(x).to(self.device)
-        trg_preds = self.model.predict(
-            src,
-            init_idx=self.dec_init_idx,
-            max_trg_len=self.dec_max_len
-        )
+        trg_preds = self.model.predict(src)
         trg_preds = trg_preds[1:]
         preds = self.reader.decode_trg(trg_preds)
         return preds
@@ -65,7 +50,7 @@ class Runner(pl.LightningModule):
         src = batch.src
         trg = batch.trg
 
-        output = self.model(src, trg, teacher_forcing_ratio=0.5)
+        output = self.model(src)
 
         output_dim = output.shape[-1]
 
@@ -82,7 +67,7 @@ class Runner(pl.LightningModule):
         src = batch.src
         trg = batch.trg
 
-        output = self.model(src, trg, teacher_forcing_ratio=0).to(self.device)
+        output = self.model(src).to(self.device)
         output_dim = output.shape[-1]
 
         trg = trg[1:].to(self.device)
@@ -91,8 +76,6 @@ class Runner(pl.LightningModule):
         # therefore we don't truncate output here
         trg_preds = output.argmax(2)[1:]
         self.val_accuracy.update(trg_preds, trg)
-        self.val_exact_match.update(trg_preds, trg)
-        self.val_bleu.update(trg_preds, trg)
 
         output = output[1:]
 
@@ -105,13 +88,9 @@ class Runner(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_accuracy = self.val_accuracy.compute()
-        avg_exact_match = self.val_exact_match.compute()
-        avg_bleu = self.val_bleu.compute()
         tensorboard_logs = {
             'val_loss': avg_loss,
             'val_accuracy': avg_accuracy,
-            'val_exact_match': avg_exact_match,
-            'val_bleu': avg_bleu
         }
 
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
