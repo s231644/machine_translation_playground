@@ -3,24 +3,23 @@
 
 import torch
 import torch.nn as nn
-from torch import Tensor
-
-from typing import Optional, Tuple
 
 
 class ConvLSTM(nn.Module):
     # cf. appendix B
-    def __init__(self, emb_dim, hid_dim, stack_size=20):
+    def __init__(self, emb_dim, hid_dim, stack_size=-1, device="cpu"):
         super().__init__()
 
         self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.stack_size = stack_size
 
-        self.wf = nn.Linear(emb_dim + hid_dim, hid_dim * 3, bias=True)
-        self.wi = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True)
-        self.wc = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True)
-        self.wo = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True)
+        self.device = device
+
+        self.wf = nn.Linear(emb_dim + hid_dim, hid_dim * 3, bias=True).to(device)
+        self.wi = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True).to(device)
+        self.wc = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True).to(device)
+        self.wo = nn.Linear(emb_dim + hid_dim, hid_dim, bias=True).to(device)
 
         up = torch.stack(
             (torch.eye(hid_dim), torch.zeros((hid_dim, hid_dim)), torch.zeros((hid_dim, hid_dim))), dim=-1
@@ -37,26 +36,29 @@ class ConvLSTM(nn.Module):
         )
         self.conv_up.weight = nn.Parameter(up, requires_grad=True)
         # self.conv_up.bias = 0
+        self.conv_up.to(device)
 
         self.conv_stay = nn.Conv1d(
             hid_dim, hid_dim, kernel_size=3, stride=1, padding=1, padding_mode="replicate"
         )
         self.conv_stay.weight = nn.Parameter(stay, requires_grad=True)
         # self.conv_stay.bias = 0
+        self.conv_stay.to(device)
 
         self.conv_down = nn.Conv1d(
             hid_dim, hid_dim, kernel_size=3, stride=1, padding=1, padding_mode="replicate"
         )
         self.conv_down.weight = nn.Parameter(down, requires_grad=True)
         # self.conv_down.bias = 0
+        self.conv_down.to(device)
 
     def forward(self, x):
         # [x] --- seq_len x batch_size x emb_dim
         seq_len, batch_size = x.shape[:2]
-        h = torch.zeros((batch_size, self.hid_dim))
-        state = torch.zeros((batch_size, self.hid_dim, 0))
+        h = torch.zeros((batch_size, self.hid_dim)).to(self.device)
+        state = torch.zeros((batch_size, self.hid_dim, 0)).to(self.device)
 
-        outputs = torch.zeros((seq_len, batch_size, self.hid_dim))
+        outputs = torch.zeros((seq_len, batch_size, self.hid_dim)).to(self.device)
 
         for t in range(seq_len):
             g_t = torch.cat([h, x[t]], dim=-1)  # batch_size x (hid_dim + emb_dim)

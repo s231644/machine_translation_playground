@@ -54,8 +54,8 @@ class Runner(pl.LightningModule):
 
         output_dim = output.shape[-1]
 
-        output = output[1:].view(-1, output_dim)
-        trg = trg[1:].view(-1).to(self.device)
+        output = output.view(-1, output_dim).to(self.device)
+        trg = trg.view(-1).to(self.device)
 
         loss = self.criterion(output, trg)
         # torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
@@ -70,14 +70,12 @@ class Runner(pl.LightningModule):
         output = self.model(src).to(self.device)
         output_dim = output.shape[-1]
 
-        trg = trg[1:].to(self.device)
+        trg = trg.to(self.device)
 
         # in case of beam search the first produced output can be useful,
         # therefore we don't truncate output here
-        trg_preds = output.argmax(2)[1:]
+        trg_preds = output.argmax(2)
         self.val_accuracy.update(trg_preds, trg)
-
-        output = output[1:]
 
         loss = self.criterion(output.view(-1, output_dim), trg.view(-1))
 

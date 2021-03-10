@@ -14,7 +14,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from runner.runner_tagger import Runner
 # from models.pos_tagging.gru_tagging import GRUTagger as Model
 # from models.pos_tagging.lstm_tagging import LSTMTagger as Model
-from models.pos_tagging.conv_lstm_encoder import ConvLSTMTagger as Model
+# from models.pos_tagging.conv_lstm_encoder import ConvLSTMTagger as Model
+from models.pos_tagging.dnc_lstm_tagging import DNCLSTMTagger as Model
 
 
 from readers.conll2003_reader import CoNLL2003Reader as Reader
@@ -59,7 +60,7 @@ runner = Runner(
 
 logger = TensorBoardLogger(
     Path("./logs/tagging"),
-    name="convlstm_tagger"
+    name="dnclstm_tagger"
 )
 
 trainer = Trainer(

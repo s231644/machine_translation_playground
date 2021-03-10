@@ -1,17 +1,21 @@
 import torch
 import torch.nn as nn
 
-from models.layers.convlstm import ConvLSTM
+from models.layers.dnc_lstm import DNCLSTM
 
 
-class ConvRNNSymmetryEncoder(nn.Module):
+class DNCLSTMEncoder(nn.Module):
     def __init__(
             self,
             input_dim,
             emb_dim,
             hid_dim,
+            output_dim,
             enc_pad_ix,
             n_layers=1,
+            n_heads=4,  # R
+            n_words=25,  # N
+            word_size=6,  # W
             dropout=0.5,
             device="cpu"
     ):
@@ -21,14 +25,26 @@ class ConvRNNSymmetryEncoder(nn.Module):
         self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.n_layers = n_layers
+        self.output_dim = output_dim
 
         self.enc_pad_ix = enc_pad_ix
 
         self.device = device
 
-        self.embedding = nn.Embedding(input_dim, emb_dim).to(self.device)
-        self.rnn = ConvLSTM(emb_dim, hid_dim, device=device).to(self.device)  # TODO: n_layers, stack_size
-        self.dropout = nn.Dropout(dropout).to(self.device)
+        # input embedding
+        self.embedding = nn.Embedding(input_dim, emb_dim)
+
+        self.rnn = DNCLSTM(
+            emb_dim, hid_dim,
+            n_layers=n_layers,
+            n_heads=n_heads, n_words=n_words, word_size=word_size,
+            device=device
+        )
+
+        # # controller output to final output
+        # self.Whry = nn.Linear(hid_dim + n_heads * word_size, output_dim)
+
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, src):
         src = src.to(self.device)

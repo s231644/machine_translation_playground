@@ -6,15 +6,15 @@ class CoNLL2003Reader:
     def __init__(self, base_path: str):
         self.SRC = data.Field(
             pad_token="<pad>",
-            init_token='<s>',
-            eos_token='</s>',
+            # init_token='<s>',
+            # eos_token='</s>',
             unk_token='<unk>'
         )
 
         self.TRG = data.Field(
             pad_token="<pad>",
-            init_token='<s>',
-            eos_token='</s>',
+            # init_token='<s>',
+            # eos_token='</s>',
             is_target=True,
             unk_token='<unk>'
         )
@@ -25,7 +25,7 @@ class CoNLL2003Reader:
         self.valid_ds = self.read_data(f'{base_path}.dev.txt')
         self.test_ds = self.read_data(f'{base_path}.test.txt')
 
-        self.SRC.build_vocab(self.train_ds.src, min_freq=10)
+        self.SRC.build_vocab(self.train_ds.src, min_freq=3)
         self.TRG.build_vocab(self.train_ds.trg, min_freq=1)
 
     def read_data(self, path: str):
